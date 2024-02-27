@@ -5,12 +5,9 @@
 #ifndef OPENGL_HELLO_WORLD_SHADER_H
 #define OPENGL_HELLO_WORLD_SHADER_H
 
-#include <glad/glad.h>
-#include <string>
 #include <fstream>
-#include <sstream>
-#include <iostream>
-#include <cerrno>
+#include <string>
+#include <glad/glad.h>
 
 std::string readFile(const char *filename);
 

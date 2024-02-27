@@ -12,7 +12,7 @@
 using string = std::string;
 
 // Checks if the different Shaders have compiled properly
-void compileErrors(unsigned int shader, const char *type) {
+void compileErrors(unsigned int shader, const char* type) {
     // Stores status of compilation
     GLint hasCompiled;
     // Character array to store error message in
@@ -32,7 +32,7 @@ void compileErrors(unsigned int shader, const char *type) {
     }
 }
 
-std::string readFile(const char *filename) {
+std::string readFile(const char* filename) {
     std::ifstream in(filename, std::ios::binary);
     panicIf(!in, fmt::format("Error opening {}: {}", filename, strerror(errno)).c_str());
 
@@ -45,14 +45,14 @@ std::string readFile(const char *filename) {
     return contents;
 }
 
-Shader::Shader(const char *vertexPath, const char *fragmentPath) {
+Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     // Read vertexFile and fragmentFile and store the strings
     std::string vertexCode = readFile(vertexPath);
     std::string fragmentCode = readFile(fragmentPath);
 
     // Convert the shader source strings into character arrays
-    const char *vertexSource = vertexCode.c_str();
-    const char *fragmentSource = fragmentCode.c_str();
+    const char* vertexSource = vertexCode.c_str();
+    const char* fragmentSource = fragmentCode.c_str();
 
     const GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, nullptr);

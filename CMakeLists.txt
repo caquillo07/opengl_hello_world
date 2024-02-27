@@ -16,6 +16,8 @@ add_executable(opengl_hello_world
         EBO.h
         texture.cpp
         texture.h
+        camera.cpp
+        camera.h
 )
 
 find_package(glad CONFIG REQUIRED)

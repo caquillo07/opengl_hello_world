@@ -5,20 +5,20 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include<glm/glm.hpp>
-#include<glm/gtc/matrix_transform.hpp>
-#include<glm/gtc/type_ptr.hpp>
+
 #include "shader.h"
 #include "VAO.h"
 #include "EBO.h"
 #include "panic.h"
 #include "texture.h"
+#include "camera.h"
 
 GLfloat vertices[] = {
-    -0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
-    -0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
-    0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
-    0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
-    0.0f, 0.8f,  0.0f,     0.92f, 0.86f, 0.76f,	2.5f, 5.0f
+    -0.5f, 0.0f, 0.5f, 0.83f, 0.70f, 0.44f, 0.0f, 0.0f,
+    -0.5f, 0.0f, -0.5f, 0.83f, 0.70f, 0.44f, 5.0f, 0.0f,
+    0.5f, 0.0f, -0.5f, 0.83f, 0.70f, 0.44f, 0.0f, 0.0f,
+    0.5f, 0.0f, 0.5f, 0.83f, 0.70f, 0.44f, 5.0f, 0.0f,
+    0.0f, 0.8f, 0.0f, 0.92f, 0.86f, 0.76f, 2.5f, 5.0f
 };
 
 // Indices for vertices order
@@ -32,17 +32,17 @@ GLuint indices[] = {
 };
 
 
-static void errorCallback(int error, const char *description) {
+static void errorCallback(int error, const char* description) {
     fprintf(stderr, "GLFW Error (%d): %s\n", error, description);
 }
 
-static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     glfwSetErrorCallback(errorCallback);
     if (!glfwInit()) {
         printf("failed to init glfw\n");
@@ -51,17 +51,17 @@ int main(int argc, char **argv) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     // only run the core profile if running macos
-#ifdef __APPLE__
+    #ifdef __APPLE__
     printf("running on macos\n");
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#elif __linux__
+    #elif __linux__
     printf("running on linux");
-#endif
+    #endif
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     constexpr int width = 800;
     constexpr int height = 800;
-    GLFWwindow *window = glfwCreateWindow(width, height, "Tutorial 01", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(width, height, "Tutorial 01", nullptr, nullptr);
     if (!window) {
         printf("failed to create window\n");
         glfwTerminate();
@@ -84,20 +84,18 @@ int main(int argc, char **argv) {
     );
 
     // Create reference containers for the Vertex Array Object and the Vertex Buffer Object
-    VAO VAO1;
+    const VAO VAO1;
     VAO1.Bind();
 
     VBO VBO1(vertices, sizeof(vertices));
-    EBO EBO1(indices, sizeof(indices));
-    VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 8 * sizeof(float), (void *) 0);
-    VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 8 * sizeof(float), (void *) (3 * sizeof(float)));
+    const EBO EBO1(indices, sizeof(indices));
+    VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 8 * sizeof(float), (void*)0);
+    VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 8 * sizeof(float), (void*)(3 * sizeof(float)));
     VAO1.LinkAttrib(VBO1, 2, 2, GL_FLOAT, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     VAO1.Unbind();
     VBO1.Unbind();
     EBO1.Unbind();
 
-    GLint uniID = glGetUniformLocation(defaultShader.ID, "scale");
-    float scaleFactor = 1.f;
 
     // textures
     Texture brickTex("../textures/brick.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
@@ -107,10 +105,10 @@ int main(int argc, char **argv) {
     defaultShader.Activate();
     glUniform1i(tex0Uni, 0);
 
-    float rotation = 0.0f;
-    double previousTime = glfwGetTime();
-
+    // enables depth buffers
     glEnable(GL_DEPTH_TEST);
+
+    Camera camera(width, height, glm::vec3(0.0f, 0.0f, 2.0f));
 
     while (!glfwWindowShouldClose(window)) {
         // Specify the color of the background
@@ -120,31 +118,10 @@ int main(int argc, char **argv) {
         // Tell OpenGL which Shader Program we want to use
         defaultShader.Activate();
 
-        double currentTime = glfwGetTime();
-//        double deltaTime = currentTime - previousTime;
-
-        if (currentTime - previousTime >= 1 / 60) {
-            rotation += 0.5f;
-            previousTime = currentTime;
-        }
-
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = glm::mat4(1.0f);
-        glm::mat4 projection = glm::mat4(1.0f);
-
-        model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
-        view = glm::translate(view, glm::vec3(0.0f, -0.5f, -3.0f));
-        projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
-
-        int modelLocation = glGetUniformLocation(defaultShader.ID, "model");
-        int viewLocation = glGetUniformLocation(defaultShader.ID, "view");
-        int projLocation = glGetUniformLocation(defaultShader.ID, "projection");
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLocation, 1, GL_FALSE, glm::value_ptr(projection));
+        camera.Inputs(window);
+        camera.Matrix(45.f, 0.1f, 100.f, defaultShader, "camMatrix");
 
 
-        glUniform1f(uniID, scaleFactor);
         brickTex.Bind();
         // Bind the VAO so OpenGL knows to use it
         VAO1.Bind();
