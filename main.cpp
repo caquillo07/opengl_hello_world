@@ -4,6 +4,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
+#include<glm/glm.hpp>
+#include<glm/gtc/matrix_transform.hpp>
+#include<glm/gtc/type_ptr.hpp>
 #include "shader.h"
 #include "VAO.h"
 #include "EBO.h"
@@ -11,16 +14,21 @@
 #include "texture.h"
 
 GLfloat vertices[] = {
-    -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f,	0.0f, 0.0f, // Lower left corner
-    -0.5f,  0.5f, 0.0f,     0.0f, 1.0f, 0.0f,	0.0f, 1.0f, // Upper left corner
-    0.5f,  0.5f, 0.0f,     0.0f, 0.0f, 1.0f,	1.0f, 1.0f, // Upper right corner
-    0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f,	1.0f, 0.0f  // Lower right corner
+    -0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
+    -0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
+    0.5f, 0.0f, -0.5f,     0.83f, 0.70f, 0.44f,	0.0f, 0.0f,
+    0.5f, 0.0f,  0.5f,     0.83f, 0.70f, 0.44f,	5.0f, 0.0f,
+    0.0f, 0.8f,  0.0f,     0.92f, 0.86f, 0.76f,	2.5f, 5.0f
 };
 
 // Indices for vertices order
 GLuint indices[] = {
-    0, 2, 1, // Upper triangle
-    0, 3, 2 // Lower triangle
+    0, 1, 2,
+    0, 2, 3,
+    0, 1, 4,
+    1, 2, 4,
+    2, 3, 4,
+    3, 0, 4
 };
 
 
@@ -92,60 +100,56 @@ int main(int argc, char **argv) {
     float scaleFactor = 1.f;
 
     // textures
-    Texture popCat("../textures/pop_cat.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
-    popCat.texUnit(defaultShader, "tex0", 0);
-
-    int widthImg, heightImg, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char *data = stbi_load("../textures/pop_cat.png", &widthImg, &heightImg, &nrChannels, 0);
-    panicIf(!data, "failed to load texture\n");
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); // want to use this one with pixel art
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // want to use this one with pixel art
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    // float borderColor[] = {1.0f, 0.0f, 0.0f, 1.0f};
-    // glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        widthImg,
-        heightImg,
-        0, // legacy BS, not used.
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        data
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    // data is already copied to the GPU, so we can free it now
-    stbi_image_free(data);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    Texture brickTex("../textures/brick.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
+    brickTex.texUnit(defaultShader, "tex0", 0);
 
     GLint tex0Uni = glGetUniformLocation(defaultShader.ID, "tex0");
     defaultShader.Activate();
     glUniform1i(tex0Uni, 0);
 
+    float rotation = 0.0f;
+    double previousTime = glfwGetTime();
+
+    glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window)) {
         // Specify the color of the background
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         // Clean the back buffer and assign the new color to it
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Tell OpenGL which Shader Program we want to use
         defaultShader.Activate();
+
+        double currentTime = glfwGetTime();
+//        double deltaTime = currentTime - previousTime;
+
+        if (currentTime - previousTime >= 1 / 60) {
+            rotation += 0.5f;
+            previousTime = currentTime;
+        }
+
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
+        glm::mat4 projection = glm::mat4(1.0f);
+
+        model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+        view = glm::translate(view, glm::vec3(0.0f, -0.5f, -3.0f));
+        projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+
+        int modelLocation = glGetUniformLocation(defaultShader.ID, "model");
+        int viewLocation = glGetUniformLocation(defaultShader.ID, "view");
+        int projLocation = glGetUniformLocation(defaultShader.ID, "projection");
+        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projLocation, 1, GL_FALSE, glm::value_ptr(projection));
+
+
         glUniform1f(uniID, scaleFactor);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        brickTex.Bind();
         // Bind the VAO so OpenGL knows to use it
         VAO1.Bind();
         // Draw the triangle using the GL_TRIANGLES primitive
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(int), GL_UNSIGNED_INT, 0);
         // Swap the back buffer with the front buffer
         glfwSwapBuffers(window);
         // Take care of all GLFW events
@@ -155,7 +159,7 @@ int main(int argc, char **argv) {
     VAO1.Delete();
     VBO1.Delete();
     EBO1.Delete();
-    popCat.Delete();
+    brickTex.Delete();
     defaultShader.Delete();
 
     glfwDestroyWindow(window);
