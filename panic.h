@@ -6,14 +6,13 @@
 #define OPENGL_HELLO_WORLD_PANIC_H
 
 #include <fmt/core.h>
-#include <cstdlib>
 
-void panic(const char* message) {
+static void panic(const char* message) {
     fmt::print("{}\n", message);
     exit(EXIT_FAILURE);
 }
 
-void panicIf(bool condition, const char* message) {
+static void panicIf(bool condition, const char* message) {
     if (condition) {
         panic(message);
     }

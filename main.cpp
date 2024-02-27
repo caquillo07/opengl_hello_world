@@ -3,25 +3,24 @@
 #include <cstdlib>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <cassert>
+#include <stb_image.h>
 #include "shader.h"
 #include "VAO.h"
 #include "EBO.h"
+#include "panic.h"
+#include "texture.h"
 
 GLfloat vertices[] = {
-    -0.5f, -0.5f * float(sqrt(3)) * 1 / 3, 0.0f, 0.8f, 0.3f, 0.02f, // Lower left corner
-    0.5f, -0.5f * float(sqrt(3)) * 1 / 3, 0.0f, 0.8f, 0.3f, 0.02f, // Lower right corner
-    0.0f, 0.5f * float(sqrt(3)) * 2 / 3, 0.0f, 1.0f, 0.6f, 0.32f, // Upper corner
-    -0.25f, 0.5f * float(sqrt(3)) * 1 / 6, 0.0f, 0.9f, 0.45f, 0.17f, // Inner left
-    0.25f, 0.5f * float(sqrt(3)) * 1 / 6, 0.0f, 0.9f, 0.45f, 0.17f, // Inner right
-    0.0f, -0.5f * float(sqrt(3)) * 1 / 3, 0.0f, 0.8f, 0.3f, 0.02f  // Inner down
+    -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f,	0.0f, 0.0f, // Lower left corner
+    -0.5f,  0.5f, 0.0f,     0.0f, 1.0f, 0.0f,	0.0f, 1.0f, // Upper left corner
+    0.5f,  0.5f, 0.0f,     0.0f, 0.0f, 1.0f,	1.0f, 1.0f, // Upper right corner
+    0.5f, -0.5f, 0.0f,     1.0f, 1.0f, 1.0f,	1.0f, 0.0f  // Lower right corner
 };
 
 // Indices for vertices order
 GLuint indices[] = {
-    0, 3, 5, // Lower left triangle
-    3, 2, 4, // Upper triangle
-    5, 4, 1 // Lower right triangle
+    0, 2, 1, // Upper triangle
+    0, 3, 2 // Lower triangle
 };
 
 
@@ -82,14 +81,57 @@ int main(int argc, char **argv) {
 
     VBO VBO1(vertices, sizeof(vertices));
     EBO EBO1(indices, sizeof(indices));
-    VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 6 * sizeof(float), (void *) 0);
-    VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 6 * sizeof(float), (void *) (3 * sizeof(float)));
+    VAO1.LinkAttrib(VBO1, 0, 3, GL_FLOAT, 8 * sizeof(float), (void *) 0);
+    VAO1.LinkAttrib(VBO1, 1, 3, GL_FLOAT, 8 * sizeof(float), (void *) (3 * sizeof(float)));
+    VAO1.LinkAttrib(VBO1, 2, 2, GL_FLOAT, 8 * sizeof(float), (void*)(6 * sizeof(float)));
     VAO1.Unbind();
     VBO1.Unbind();
     EBO1.Unbind();
 
     GLint uniID = glGetUniformLocation(defaultShader.ID, "scale");
-    float scaleFactor = 2.0f;
+    float scaleFactor = 1.f;
+
+    // textures
+    Texture popCat("../textures/pop_cat.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
+    popCat.texUnit(defaultShader, "tex0", 0);
+
+    int widthImg, heightImg, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load("../textures/pop_cat.png", &widthImg, &heightImg, &nrChannels, 0);
+    panicIf(!data, "failed to load texture\n");
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); // want to use this one with pixel art
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // want to use this one with pixel art
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    // float borderColor[] = {1.0f, 0.0f, 0.0f, 1.0f};
+    // glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        widthImg,
+        heightImg,
+        0, // legacy BS, not used.
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data
+    );
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // data is already copied to the GPU, so we can free it now
+    stbi_image_free(data);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLint tex0Uni = glGetUniformLocation(defaultShader.ID, "tex0");
+    defaultShader.Activate();
+    glUniform1i(tex0Uni, 0);
+
 
     while (!glfwWindowShouldClose(window)) {
         // Specify the color of the background
@@ -98,11 +140,12 @@ int main(int argc, char **argv) {
         glClear(GL_COLOR_BUFFER_BIT);
         // Tell OpenGL which Shader Program we want to use
         defaultShader.Activate();
+        glUniform1f(uniID, scaleFactor);
+        glBindTexture(GL_TEXTURE_2D, texture);
         // Bind the VAO so OpenGL knows to use it
         VAO1.Bind();
-        glUniform1f(uniID, scaleFactor);
         // Draw the triangle using the GL_TRIANGLES primitive
-        glDrawElements(GL_TRIANGLES, 9, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         // Swap the back buffer with the front buffer
         glfwSwapBuffers(window);
         // Take care of all GLFW events
@@ -112,6 +155,7 @@ int main(int argc, char **argv) {
     VAO1.Delete();
     VBO1.Delete();
     EBO1.Delete();
+    popCat.Delete();
     defaultShader.Delete();
 
     glfwDestroyWindow(window);

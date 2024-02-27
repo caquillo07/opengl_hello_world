@@ -14,6 +14,8 @@ add_executable(opengl_hello_world
         VAO.h
         EBO.cpp
         EBO.h
+        texture.cpp
+        texture.h
 )
 
 find_package(glad CONFIG REQUIRED)
@@ -26,3 +28,5 @@ find_package(fmt CONFIG REQUIRED)
 target_link_libraries(opengl_hello_world PRIVATE fmt::fmt)
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(opengl_hello_world PRIVATE fmt::fmt)
+find_package(Stb REQUIRED)
+target_include_directories(opengl_hello_world PRIVATE ${Stb_INCLUDE_DIR})
